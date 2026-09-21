@@ -4,22 +4,20 @@
     "slug": "tictactoe",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/tic-tac-toe.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/tic-tac-toe.png",
+        "backgroundColor": "#141414"
       },
       "package": "com.jujuu09.tictactoe"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/tic-tac-toe.png"
     },
     "extra": {
       "eas": {

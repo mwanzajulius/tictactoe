@@ -1,11 +1,16 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  Dimensions, Switch, ImageBackground,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeContext } from '../App';
 import { Colors } from '../theme';
 
 const { width } = Dimensions.get('window');
-const BOARD_SIZE = width - 64;
-const CELL_SIZE = BOARD_SIZE / 3;
+const BOARD_SIZE = width - 48;
+const GAP = 6;
+const CELL_SIZE = (BOARD_SIZE - GAP * 2) / 3;
 
 const WIN_LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -22,7 +27,6 @@ function checkWinner(board) {
   return null;
 }
 
-// Minimax
 function minimax(board, isMax, depth, alpha, beta) {
   const result = checkWinner(board);
   if (result) {
@@ -73,16 +77,14 @@ function getBestMove(board) {
 function getAIMove(board, difficulty) {
   const empty = board.map((v, i) => (!v ? i : null)).filter((v) => v !== null);
   if (difficulty === 'easy') return empty[Math.floor(Math.random() * empty.length)];
-  if (difficulty === 'medium') {
-    // 60% chance of best move, else random
+  if (difficulty === 'medium')
     return Math.random() < 0.6 ? getBestMove(board) : empty[Math.floor(Math.random() * empty.length)];
-  }
   return getBestMove(board);
 }
 
 export default function GameScreen({ route, navigation }) {
   const { mode, difficulty } = route.params;
-  const { isDark } = useContext(ThemeContext);
+  const { isDark, toggleTheme } = useContext(ThemeContext);
   const c = Colors[isDark ? 'dark' : 'light'];
 
   const [board, setBoard] = useState(Array(9).fill(null));
@@ -91,6 +93,10 @@ export default function GameScreen({ route, navigation }) {
   const [scores, setScores] = useState({ X: 0, O: 0, draw: 0 });
 
   const isAITurn = mode === 'ai' && !xIsNext;
+
+  const overlayColors = isDark
+    ? ['rgba(10,10,10,0.4)', 'rgba(10,10,10,0.75)', 'rgba(10,10,10,0.96)']
+    : ['rgba(232,228,220,0.35)', 'rgba(232,228,220,0.72)', 'rgba(232,228,220,0.96)'];
 
   useEffect(() => {
     if (isAITurn && !result) {
@@ -108,7 +114,7 @@ export default function GameScreen({ route, navigation }) {
             setXIsNext(true);
           }
         }
-      }, 400);
+      }, 450);
       return () => clearTimeout(timer);
     }
   }, [board, xIsNext, result]);
@@ -138,105 +144,153 @@ export default function GameScreen({ route, navigation }) {
   function statusText() {
     if (!result) {
       if (isAITurn) return 'AI is thinking…';
-      return mode === 'ai' ? 'Your turn  (X)' : `Player ${xIsNext ? 'X' : 'O'}'s turn`;
+      if (mode === 'ai') return 'Your turn  (X)';
+      return `Player ${xIsNext ? 'X' : 'O'}'s turn`;
     }
-    if (result.winner === 'draw') return "It's a draw!";
+    if (result.winner === 'draw') return "Cat's game — Draw!";
     if (mode === 'ai') return result.winner === 'X' ? 'You win! 🎉' : 'AI wins!';
     return `Player ${result.winner} wins! 🎉`;
   }
 
-  const playerLabel = (p) => (mode === 'ai' ? (p === 'X' ? 'You' : 'AI') : `P${p === 'X' ? 1 : 2}`);
+  const playerLabel = (p) =>
+    mode === 'ai' ? (p === 'X' ? 'You' : 'AI') : `P${p === 'X' ? '1' : '2'}`;
+
+  const rows = [[0, 1, 2], [3, 4, 5], [6, 7, 8]];
 
   return (
-    <View style={[styles.container, { backgroundColor: c.bg }]}>
-      {/* Score */}
-      <View style={[styles.scoreRow, { borderColor: c.border }]}>
-        {['X', 'draw', 'O'].map((key) => (
-          <View key={key} style={styles.scoreCell}>
-            <Text style={[styles.scoreLabel, { color: c.subtext }]}>
-              {key === 'draw' ? 'DRAW' : playerLabel(key)}
-            </Text>
-            <Text style={[styles.scoreNum, { color: c.text }]}>{scores[key] || 0}</Text>
-          </View>
-        ))}
-      </View>
+    <ImageBackground
+      source={require('../assets/gamification.png')}
+      style={styles.bg}
+      resizeMode="cover"
+    >
+      <LinearGradient colors={overlayColors} locations={[0, 0.4, 1]} style={styles.overlay}>
 
-      {/* Status */}
-      <Text style={[styles.status, { color: c.text }]}>{statusText()}</Text>
+        {/* Top bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={[styles.back, { color: c.subtext }]}>← Back</Text>
+          </TouchableOpacity>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            thumbColor={c.btnBg}
+            trackColor={{ false: c.border, true: c.border }}
+          />
+        </View>
 
-      {/* Board */}
-      <View style={[styles.board, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
-        {board.map((cell, i) => {
-          const isWinCell = winLine.includes(i);
-          return (
-            <TouchableOpacity
-              key={i}
+        {/* Score */}
+        <View style={[styles.scoreCard, { backgroundColor: c.scoreCard, borderColor: c.border }]}>
+          {['X', 'draw', 'O'].map((key, idx) => (
+            <View
+              key={key}
               style={[
-                styles.cell,
-                {
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
-                  borderColor: c.cellBorder,
-                  backgroundColor: isWinCell ? (isDark ? '#2A2A2A' : '#EBEBEB') : c.cell,
-                },
+                styles.scoreCell,
+                idx < 2 && { borderRightWidth: 1, borderColor: c.border },
               ]}
-              onPress={() => handlePress(i)}
-              activeOpacity={0.7}
             >
-              {cell && (
-                <Text
-                  style={[
-                    styles.cellText,
-                    { color: cell === 'X' ? c.x : c.o, fontSize: CELL_SIZE * 0.45 },
-                  ]}
-                >
-                  {cell}
-                </Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+              <Text style={[styles.scoreLabel, { color: c.subtext }]}>
+                {key === 'draw' ? 'DRAW' : `${playerLabel(key)} (${key})`}
+              </Text>
+              <Text style={[styles.scoreNum, { color: c.text }]}>{scores[key] || 0}</Text>
+            </View>
+          ))}
+        </View>
 
-      {/* Actions */}
-      <TouchableOpacity style={[styles.btn, { backgroundColor: c.btnBg }]} onPress={reset}>
-        <Text style={[styles.btnText, { color: c.btnText }]}>Play Again</Text>
-      </TouchableOpacity>
+        {/* Status */}
+        <Text style={[styles.status, { color: c.text }]}>{statusText()}</Text>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={[styles.back, { color: c.subtext }]}>← Back</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Board */}
+        <View style={[styles.board, { width: BOARD_SIZE }]}>
+          {rows.map((row, rowIdx) => (
+            <View key={rowIdx} style={[styles.row, rowIdx < 2 && { marginBottom: GAP }]}>
+              {row.map((cellIdx, colIdx) => {
+                const cell = board[cellIdx];
+                const isWin = winLine.includes(cellIdx);
+                return (
+                  <TouchableOpacity
+                    key={cellIdx}
+                    style={[
+                      styles.cell,
+                      colIdx < 2 && { marginRight: GAP },
+                      {
+                        width: CELL_SIZE,
+                        height: CELL_SIZE,
+                        backgroundColor: isWin
+                          ? isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'
+                          : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)',
+                      },
+                    ]}
+                    onPress={() => handlePress(cellIdx)}
+                    activeOpacity={0.7}
+                  >
+                    {cell ? (
+                      <Text
+                        style={[
+                          styles.mark,
+                          {
+                            fontSize: CELL_SIZE * 0.44,
+                            color: cell === 'X' ? c.x : c.o,
+                          },
+                        ]}
+                      >
+                        {cell}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+
+        {/* New Game */}
+        <TouchableOpacity
+          style={[styles.btn, { backgroundColor: c.btnBg }]}
+          onPress={reset}
+        >
+          <Text style={[styles.btnText, { color: c.btnText }]}>New Game</Text>
+        </TouchableOpacity>
+
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  scoreRow: {
+  bg: { flex: 1 },
+  overlay: { flex: 1, paddingHorizontal: 24, paddingTop: 56, paddingBottom: 40 },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  back: { fontSize: 15, letterSpacing: 1 },
+  scoreCard: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderRadius: 4,
-    marginBottom: 32,
+    borderRadius: 8,
+    marginBottom: 20,
     overflow: 'hidden',
   },
-  scoreCell: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  scoreLabel: { fontSize: 11, letterSpacing: 2, textTransform: 'uppercase' },
-  scoreNum: { fontSize: 24, fontWeight: '700', marginTop: 4 },
-  status: { fontSize: 16, letterSpacing: 1, marginBottom: 24, fontWeight: '500' },
-  board: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 32 },
+  scoreCell: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  scoreLabel: { fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
+  scoreNum: { fontSize: 28, fontWeight: '700', marginTop: 2 },
+  status: { fontSize: 17, fontWeight: '600', letterSpacing: 0.5, marginBottom: 18, textAlign: 'center' },
+  board: { alignSelf: 'center', marginBottom: 28 },
+  row: { flexDirection: 'row' },
   cell: {
-    borderWidth: 1,
+    borderWidth: 2,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cellText: { fontWeight: '700' },
+  mark: { fontWeight: '800' },
   btn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 4,
+    paddingVertical: 15,
+    borderRadius: 6,
     alignItems: 'center',
-    marginBottom: 16,
   },
-  btnText: { fontSize: 15, fontWeight: '600', letterSpacing: 2 },
-  back: { fontSize: 14, letterSpacing: 1 },
+  btnText: { fontSize: 15, fontWeight: '700', letterSpacing: 2 },
 });
